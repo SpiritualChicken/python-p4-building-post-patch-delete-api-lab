@@ -23,12 +23,65 @@ def bakeries():
     bakeries = [bakery.to_dict() for bakery in Bakery.query.all()]
     return make_response(  bakeries,   200  )
 
-@app.route('/bakeries/<int:id>')
-def bakery_by_id(id):
-
+@app.route('/bakeries/<int:id>', methods=['PATCH'])
+def update_bakery(id):
     bakery = Bakery.query.filter_by(id=id).first()
+    if not bakery:
+        return make_response(jsonify({'error': 'Bakery not found'}), 404)
+
+    data = request.form
+    name = data.get('name')
+
+    if name:
+        bakery.name = name
+        db.session.commit()
+
     bakery_serialized = bakery.to_dict()
-    return make_response ( bakery_serialized, 200  )
+    response = make_response(jsonify(bakery_serialized), 200)
+    return response
+
+@app.route('/baked_goods/<int:id>', methods=['DELETE'])
+def delete_baked_good(id):
+    baked_good = BakedGood.query.filter_by(id=id).first()
+    if not baked_good:
+        return make_response(jsonify({'error': 'Baked good not found'}), 404)
+
+    db.session.delete(baked_good)
+    db.session.commit()
+
+    response = make_response(jsonify({'message': 'Baked good successfully deleted'}), 200)
+    return response
+
+
+@app.route('/baked_goods', methods=['POST'])
+def create_baked_good():
+    data = request.form
+
+    name = data.get('name')
+    price = data.get('price')
+    bakery_id = data.get('bakery_id')
+
+    if not name or not price or not bakery_id:
+        return make_response(jsonify({'error': 'Missing required fields'}), 400)
+
+    try:
+        new_baked_good = BakedGood(
+            name=name,
+            price=int(price),
+            bakery_id=int(bakery_id)
+        )
+
+        db.session.add(new_baked_good)
+        db.session.commit()
+
+        response_body = new_baked_good.to_dict()
+
+        response = make_response(jsonify(response_body), 201)
+
+        return response
+    except Exception as e:
+        db.session.rollback()
+        return make_response(jsonify({'error': str(e)}), 500)
 
 @app.route('/baked_goods/by_price')
 def baked_goods_by_price():
